@@ -1,5 +1,6 @@
 import sqlite3
 import sys
+import os
 from random import randint
 
 from PyQt5 import uic
@@ -12,9 +13,9 @@ class MyWidget(QMainWindow):
         super().__init__()
         self.score_number = 0
         self.subject_number = 0
-        self.game_mode = 0
+        self.cur_game_mode = 0
         self.what_is = 'Что находится на карте под номером'
-        uic.loadUi("дизайн.ui", self)
+        uic.loadUi("design.ui", self)
         self.initUI()
 
     def initUI(self):
@@ -27,7 +28,7 @@ class MyWidget(QMainWindow):
     def game_mode(self):
         self.score_number = 0
         if self.russian_subjects.isChecked():
-            self.game_mode = 1
+            self.cur_game_mode = 1
             self.stackedWidget.setCurrentIndex(1)
             self.pixmap = QPixmap('карта.jpg')
             self.image = QLabel(self)
@@ -43,7 +44,7 @@ class MyWidget(QMainWindow):
             print(self.now_subject)
             self.ex_1.setText(self.what_is + str(self.subject_number) + '?')
         elif self.europe_countries.isChecked():
-            self.game_mode = self.stackedWidget.currentIndex()
+            self.cur_game_mode = self.stackedWidget.currentIndex()
             self.stackedWidget.setCurrentIndex(2)
 
     def send(self):
@@ -65,20 +66,27 @@ class MyWidget(QMainWindow):
     def idk(self):
         con = sqlite3.connect('tries.sql.db3')
         cur = con.cursor()
-        result = con.execute('''SELECT COUNT (*) FROM i_dont_know WHERE name_of_object LIKE ?''', self.now_subject).fetchone()
-        print(result)
-        # print(con.execute('''SELECT COUNT  FROM i_dont_know WHERE name_of_object LIKE ?''', self.now_subject))
-        # if con.execute('''SELECT COUNT FROM i_dont_know WHERE name_of_object LIKE ?''', self.now_subject) == 0:
-        # con.execute('''UPDATE i_dont_know SET count = count + 1 WHERE name == self.now_subject''')
-        con.execute('''INSERT INTO i_dont_know(name_of_object, mode_number, count) 
-            VALUES(?, ?, 1)''', (self.now_subject, self.stackedWidget.currentIndex()))
+        result = con.execute('''SELECT COUNT (*) FROM i_dont_know WHERE name_of_object LIKE ?''', (self.now_subject,)).fetchone()
+        print(result[0])
+        if int(result[0]) == 0:
+            con.execute('''INSERT INTO i_dont_know(name_of_object, mode_number, count) 
+                        VALUES(?, ?, 1)''', (self.now_subject, self.stackedWidget.currentIndex()))
+        else:
+            con.execute('''UPDATE i_dont_know SET count = count + 1 WHERE name_of_object == ?''', (self.now_subject,))
         con.commit()
         self.answer_1.setText(self.now_subject)
         self.wrong_answer.setText('Посмотрите на правильный ответ. Сейчас появится новое задание.')
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MyWidget()
     ex.show()
+    sys.excepthook = except_hook
+    sys.exit(app.exec_())
+
     sys.exit(app.exec_())
